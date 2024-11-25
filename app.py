@@ -84,9 +84,9 @@ try:
         try:
             data = load_dataset(uploaded_file)
 
-            # Dataset size check (limit to 50 MB)
-            if data.memory_usage(deep=True).sum() > 50 * 1024 * 1024:
-                st.error("Dataset is too large! Please upload a file smaller than 50 MB.")
+            # Dataset size check (limit to 1000 MB)
+            if data.memory_usage(deep=True).sum() > 1000 * 1024 * 1024:
+                st.error("Dataset is too large! Please upload a file smaller than 1000 MB.")
                 st.stop()
 
             st.session_state["original_data"] = data.copy()
