@@ -21,6 +21,8 @@ if "original_data" not in st.session_state:
     st.session_state["original_data"] = None
 if "cleaned_data" not in st.session_state:
     st.session_state["cleaned_data"] = None
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
 
 # Title
 st.title("Interactive ML Model Testing and EDA Platform")
@@ -32,21 +34,26 @@ This platform combines data preparation, exploratory data analysis (EDA), and ML
 # File Upload
 uploaded_file = st.sidebar.file_uploader("Upload your dataset in CSV format", type=["csv"])
 
-if uploaded_file:
-    # Load data into session state
-    if st.session_state["original_data"] is None:
-        st.session_state["original_data"] = pd.read_csv(uploaded_file)
-        st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
+# Handle new file upload
+if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
+    st.session_state["original_data"] = pd.read_csv(uploaded_file)
+    st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
+    st.session_state["uploaded_file"] = uploaded_file
+    st.success("New dataset uploaded successfully!")
 
-    # Work with the cleaned data
+# Work with the uploaded or reset data
+if st.session_state["original_data"] is not None:
     data = st.session_state["cleaned_data"]
+
+    # Display dataset
     st.write("### Dataset Preview")
     st.dataframe(data)
 
     # Option to reset the dataset
     if st.sidebar.button("Reset Dataset"):
         st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
-        st.success("Dataset reset to its original state.")
+        st.success("Dataset reset to its original state!")
+        st.experimental_rerun()
 
     # Data Cleaning Options
     st.sidebar.header("Data Cleaning Options")
