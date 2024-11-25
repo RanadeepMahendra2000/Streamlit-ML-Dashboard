@@ -2,8 +2,8 @@ import logging
 
 # Configure logging
 logging.basicConfig(
-    filename="app_errors.log", 
-    level=logging.ERROR, 
+    filename="app_errors.log",
+    level=logging.ERROR,
     format="%(asctime)s %(levelname)s %(message)s"
 )
 
@@ -84,9 +84,9 @@ try:
         try:
             data = load_dataset(uploaded_file)
 
-            # Dataset size check (limit to 100 MB)
-            if data.memory_usage(deep=True).sum() > 100 * 1024 * 1024:
-                st.error("Dataset is too large! Please upload a file smaller than 100 MB.")
+            # Dataset size check (limit to 50 MB)
+            if data.memory_usage(deep=True).sum() > 50 * 1024 * 1024:
+                st.error("Dataset is too large! Please upload a file smaller than 50 MB.")
                 st.stop()
 
             st.session_state["original_data"] = data.copy()
