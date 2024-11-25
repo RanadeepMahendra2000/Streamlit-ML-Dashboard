@@ -93,7 +93,7 @@ try:
                 st.stop()
 
             # Dataset size check (limit to 1000 MB)
-            if data.memory_usage(deep=True).sum() > 1000 * 1024 * 1024:
+            if data.memory_usage(deep=True).sum() > 10000000000000000 * 1024 * 1024:
                 st.error("Dataset is too large! Please upload a file smaller than 1000 MB.")
                 st.stop()
 
