@@ -42,7 +42,12 @@ if "uploaded_file" not in st.session_state:
 @st.cache_data
 def load_dataset(file):
     """Loads the dataset with caching."""
-    return pd.read_csv(file)
+    try:
+        return pd.read_csv(file)
+    except Exception as e:
+        logging.error(f"Error loading dataset: {e}", exc_info=True)
+        st.error("Error loading dataset. Please check the file format.")
+        return None
 
 @st.cache_resource
 def process_data(df):
@@ -84,6 +89,9 @@ try:
         try:
             data = load_dataset(uploaded_file)
 
+            if data is None:
+                st.stop()
+
             # Dataset size check (limit to 1000 MB)
             if data.memory_usage(deep=True).sum() > 1000 * 1024 * 1024:
                 st.error("Dataset is too large! Please upload a file smaller than 1000 MB.")
@@ -99,21 +107,17 @@ try:
 
     # Work with the uploaded data
     if st.session_state["original_data"] is not None:
-        try:
-            data = st.session_state["cleaned_data"]
+        data = st.session_state["cleaned_data"]
 
-            # Display dataset preview
-            st.write("### Dataset Preview")
-            st.dataframe(data)
+        # Display dataset preview
+        st.write("### Dataset Preview")
+        st.dataframe(data)
 
-            # Option to reset the dataset
-            if st.sidebar.button("Reset Dataset"):
-                st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
-                st.success("Dataset reset to its original state!")
-                st.experimental_set_query_params()  # Triggers app reload
-        except Exception as e:
-            st.error(f"Error working with uploaded data: {e}")
-            logging.error(f"Error working with uploaded data: {e}", exc_info=True)
+        # Option to reset the dataset
+        if st.sidebar.button("Reset Dataset"):
+            st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
+            st.success("Dataset reset to its original state!")
+            st.experimental_set_query_params()  # Triggers app reload
 
         # Data Cleaning Options
         st.sidebar.header("Data Cleaning Options")
@@ -123,23 +127,26 @@ try:
             method = st.sidebar.selectbox("Choose a method", ["Mean", "Median", "Mode", "Drop Rows"])
             numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
 
-            try:
-                if method == "Mean":
-                    data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].mean())
-                elif method == "Median":
-                    data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].median())
-                elif method == "Mode":
-                    for col in data.columns:
-                        data[col].fillna(data[col].mode()[0], inplace=True)
-                elif method == "Drop Rows":
-                    data.dropna(inplace=True)
-                st.success(f"Missing values handled using: {method}")
-                st.session_state["cleaned_data"] = data
-            except Exception as e:
-                st.error(f"Error handling missing values: {e}")
-                logging.error(f"Error handling missing values: {e}", exc_info=True)
+            if numeric_cols.empty:
+                st.warning("No numeric columns found.")
+            else:
+                try:
+                    if method == "Mean":
+                        data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].mean())
+                    elif method == "Median":
+                        data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].median())
+                    elif method == "Mode":
+                        for col in numeric_cols:
+                            data[col] = data[col].fillna(data[col].mode()[0])
+                    elif method == "Drop Rows":
+                        data.dropna(inplace=True)
+                    st.success(f"Missing values handled using: {method}")
+                    st.session_state["cleaned_data"] = data
+                except Exception as e:
+                    st.error(f"Error handling missing values: {e}")
+                    logging.error(f"Error handling missing values: {e}", exc_info=True)
 
-        # Automatically Encode Categorical Data
+        # Encode Categorical Data
         if st.sidebar.checkbox("Encode Categorical Data"):
             try:
                 encoding_method = st.sidebar.radio("Encoding Method", ["Label Encoding", "One-Hot Encoding"])
