@@ -4,6 +4,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
+from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.svm import SVC
+from sklearn.cluster import KMeans
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, 
+    confusion_matrix, roc_auc_score, roc_curve, silhouette_score
+)
 
 # Title
 st.title("Interactive ML Model Testing and EDA Platform")
@@ -11,7 +22,6 @@ st.markdown("""
 Upload your dataset to clean, analyze, and test six powerful machine learning algorithms. 
 This platform combines data preparation, exploratory data analysis (EDA), and ML model experimentation in a single interface.
 """)
-
 
 # File Upload
 uploaded_file = st.sidebar.file_uploader("Upload your dataset in CSV format", type=["csv"])
@@ -117,5 +127,89 @@ if uploaded_file:
         sns.pairplot(data)
         st.pyplot(plt)
 
+    # Machine Learning Section
+    st.sidebar.header("Machine Learning")
+    if st.sidebar.checkbox("Run Machine Learning Models"):
+        # Model Selection
+        model_choice = st.sidebar.selectbox(
+            "Choose an ML Model",
+            [
+                "Random Forest",
+                "Decision Tree",
+                "Logistic Regression",
+                "K-Nearest Neighbors (KNN)",
+                "Support Vector Machine (SVM)",
+                "K-Means Clustering",
+            ],
+        )
+
+        # Target Variable Selection
+        target_column = st.sidebar.selectbox("Select Target Column", data.columns)
+
+        # Feature and Target Data
+        X = data.drop(columns=[target_column])
+        y = data[target_column]
+
+        # Train-Test Split
+        test_size = st.sidebar.slider("Test Size (Proportion)", 0.1, 0.5, 0.3)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+
+        # Model Initialization
+        if model_choice == "Random Forest":
+            model = RandomForestClassifier()
+        elif model_choice == "Decision Tree":
+            model = DecisionTreeClassifier()
+        elif model_choice == "Logistic Regression":
+            model = LogisticRegression()
+        elif model_choice == "K-Nearest Neighbors (KNN)":
+            model = KNeighborsClassifier()
+        elif model_choice == "Support Vector Machine (SVM)":
+            model = SVC(probability=True)
+        elif model_choice == "K-Means Clustering":
+            model = KMeans(n_clusters=3)
+
+        # Fit Model and Display Results
+        if model_choice == "K-Means Clustering":
+            # Fit clustering model
+            model.fit(X)
+            st.write("### Clustering Results")
+            st.write("Cluster Assignments:", model.labels_)
+            st.write("Inertia (Sum of squared distances to cluster centers):", model.inertia_)
+            if len(X) >= 2:  # Silhouette requires at least 2 samples per cluster
+                silhouette_avg = silhouette_score(X, model.labels_)
+                st.write("Silhouette Score:", silhouette_avg)
+        else:
+            # Fit classification model
+            model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
+            y_proba = model.predict_proba(X_test)[:, 1] if hasattr(model, "predict_proba") else None
+
+            # Accuracy and Metrics
+            st.write("### Model Evaluation")
+            st.write("Accuracy:", accuracy_score(y_test, y_pred))
+            st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
+            st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
+            st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
+
+            # Confusion Matrix
+            st.write("### Confusion Matrix")
+            cm = confusion_matrix(y_test, y_pred)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+            st.pyplot(plt)
+
+            # ROC Curve
+            if y_proba is not None:
+                st.write("### ROC Curve")
+                fpr, tpr, _ = roc_curve(y_test, y_proba)
+                plt.figure(figsize=(10, 6))
+                plt.plot(fpr, tpr, label="ROC Curve (AUC = {:.2f})".format(roc_auc_score(y_test, y_proba)))
+                plt.plot([0, 1], [0, 1], 'k--', label="Random Classifier")
+                plt.xlabel("False Positive Rate")
+                plt.ylabel("True Positive Rate")
+                plt.title("Receiver Operating Characteristic (ROC) Curve")
+                plt.legend()
+                st.pyplot(plt)
+
 # Footer
-st.sidebar.markdown("Ranadeep Mahendra")
+st.sidebar.markdown("Developed by Ranadeep Maheendra")
