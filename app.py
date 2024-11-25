@@ -216,4 +216,7 @@ try:
 except Exception as e:
     st.error(f"An unexpected error occurred: {str(e)}")
     if st.sidebar.button("Reset App"):
-       
+        reset_app()
+
+# Footer
+st.sidebar.markdown("Developed by Ranadeep Mahendra 🚀")
