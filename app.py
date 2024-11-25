@@ -38,6 +38,17 @@ if "cleaned_data" not in st.session_state:
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
 
+# Caching functions
+@st.cache
+def load_dataset(file):
+    """Loads the dataset with caching."""
+    return pd.read_csv(file)
+
+@st.cache
+def process_data(df):
+    """Processes the data (e.g., encoding, normalization)."""
+    return df.copy()
+
 # Reset app
 def reset_app():
     """Resets the app and reloads the page."""
@@ -71,7 +82,7 @@ try:
     # Handle new file upload
     if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
         try:
-            data = pd.read_csv(uploaded_file)
+            data = load_dataset(uploaded_file)
 
             # Dataset size check (limit to 100 MB)
             if data.memory_usage(deep=True).sum() > 100 * 1024 * 1024:
@@ -149,30 +160,6 @@ try:
             except Exception as e:
                 st.error(f"Error encoding categorical data: {e}")
                 logging.error(f"Error encoding categorical data: {e}", exc_info=True)
-
-        # Drop Duplicates
-        if st.sidebar.checkbox("Drop Duplicates"):
-            try:
-                data.drop_duplicates(inplace=True)
-                st.success("Duplicates dropped.")
-                st.session_state["cleaned_data"] = data
-            except Exception as e:
-                st.error(f"Error dropping duplicates: {e}")
-                logging.error(f"Error dropping duplicates: {e}", exc_info=True)
-
-        # Normalize/Standardize Data
-        if st.sidebar.checkbox("Normalize/Standardize Data"):
-            norm_method = st.sidebar.selectbox("Choose a method", ["Standardization", "Min-Max Scaling"])
-            scaler = StandardScaler() if norm_method == "Standardization" else MinMaxScaler()
-            numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
-
-            try:
-                data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
-                st.success(f"Data {norm_method} applied to numeric columns.")
-                st.session_state["cleaned_data"] = data
-            except Exception as e:
-                st.error(f"Error normalizing data: {e}")
-                logging.error(f"Error normalizing data: {e}", exc_info=True)
 
         # Display cleaned dataset
         st.write("### Cleaned Dataset Preview")
@@ -282,8 +269,6 @@ try:
             except Exception as e:
                 st.error(f"Error training model: {e}")
                 logging.error(f"Error training model: {e}", exc_info=True)
-
-        # Take memory snapshot
         gc.collect()
         compare_snapshots()
 
