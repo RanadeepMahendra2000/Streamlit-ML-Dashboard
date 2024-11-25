@@ -1,0 +1,8 @@
+streamlit
+pandas
+numpy
+matplotlib
+seaborn
+scikit-learn
+If you're using additional libraries (e.g., for clustering or deployment), add them to this file. You can automatically generate it with:
+pip freeze > requirements.txt
