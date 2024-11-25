@@ -39,12 +39,12 @@ if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
 
 # Caching functions
-@st.cache
+@st.cache_data
 def load_dataset(file):
     """Loads the dataset with caching."""
     return pd.read_csv(file)
 
-@st.cache
+@st.cache_resource
 def process_data(df):
     """Processes the data (e.g., encoding, normalization)."""
     return df.copy()
