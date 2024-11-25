@@ -37,15 +37,21 @@ if uploaded_file:
     # Handle Missing Values
     if st.sidebar.checkbox("Handle Missing Values"):
         method = st.sidebar.selectbox("Choose a method", ["Mean", "Median", "Mode", "Drop Rows"])
+    
+    # Separate numeric and non-numeric columns
+        numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
+        non_numeric_cols = data.select_dtypes(exclude=["float64", "int64"]).columns
+    
         if method == "Mean":
-            data.fillna(data.mean(), inplace=True)
+            data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].mean())
         elif method == "Median":
-            data.fillna(data.median(), inplace=True)
+            data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].median())
         elif method == "Mode":
-            for col in data.select_dtypes(include=["object", "category"]).columns:
+            for col in data.columns:
                 data[col].fillna(data[col].mode()[0], inplace=True)
         elif method == "Drop Rows":
             data.dropna(inplace=True)
+    
         st.write("Missing values handled using:", method)
 
     # Handle Outliers
