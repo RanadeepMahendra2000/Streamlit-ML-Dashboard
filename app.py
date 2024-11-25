@@ -15,6 +15,12 @@ from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     confusion_matrix, silhouette_score
 )
+import tracemalloc
+import gc
+import json
+
+# Initialize memory tracking
+tracemalloc.start(10)  # Retain 10 frames of traceback for debugging memory leaks
 
 # Initialize session state
 if "original_data" not in st.session_state:
@@ -29,6 +35,19 @@ def reset_app():
     """Resets the app and reloads the page."""
     st.session_state.clear()
     st.experimental_set_query_params()  # Triggers a page reload
+
+# Memory debugging utility
+def compare_snapshots():
+    """Compares memory snapshots to detect leaks."""
+    snapshot = tracemalloc.take_snapshot()
+    if "snapshot" in st.session_state:
+        diff = snapshot.compare_to(st.session_state["snapshot"], "lineno")
+        leaks = [d for d in diff if d.count_diff > 0]
+        if leaks:
+            st.write("### Potential Memory Leaks Detected")
+            for leak in leaks[:10]:  # Limit to top 10 leaks for clarity
+                st.write(leak)
+    st.session_state["snapshot"] = snapshot
 
 # Title
 st.title("Interactive ML Model Testing and EDA Platform 🚀")
@@ -230,6 +249,10 @@ try:
                     st.pyplot(plt)
             except Exception as e:
                 st.error(f"Error training model: {e}")
+
+        # Take memory snapshot
+        gc.collect()
+        compare_snapshots()
 
 except Exception as e:
     st.error(f"Unexpected error occurred: {e}")
