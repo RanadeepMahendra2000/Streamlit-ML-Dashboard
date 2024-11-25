@@ -34,14 +34,33 @@ if uploaded_file:
     # Data Cleaning Options
     st.sidebar.header("Data Cleaning Options")
 
+    # Automatically Encode Categorical Data
+    if st.sidebar.checkbox("Automatically Encode Categorical Data"):
+        encoding_method = st.sidebar.radio("Select Encoding Method", ["Label Encoding", "One-Hot Encoding"])
+        
+        # Identify Categorical Columns
+        categorical_cols = data.select_dtypes(include=["object", "category"]).columns
+        
+        if len(categorical_cols) > 0:
+            if encoding_method == "Label Encoding":
+                le = LabelEncoder()
+                for col in categorical_cols:
+                    data[col] = le.fit_transform(data[col].astype(str))
+                st.write("Applied Label Encoding to categorical columns.")
+            elif encoding_method == "One-Hot Encoding":
+                data = pd.get_dummies(data, columns=categorical_cols)
+                st.write("Applied One-Hot Encoding to categorical columns.")
+        else:
+            st.write("No categorical columns found to encode.")
+
     # Handle Missing Values
     if st.sidebar.checkbox("Handle Missing Values"):
         method = st.sidebar.selectbox("Choose a method", ["Mean", "Median", "Mode", "Drop Rows"])
-    
-    # Separate numeric and non-numeric columns
+        
+        # Separate numeric and non-numeric columns
         numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
-        non_numeric_cols = data.select_dtypes(exclude=["float64", "int64"]).columns
-    
+        categorical_cols = data.select_dtypes(exclude=["float64", "int64"]).columns
+        
         if method == "Mean":
             data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].mean())
         elif method == "Median":
@@ -51,22 +70,8 @@ if uploaded_file:
                 data[col].fillna(data[col].mode()[0], inplace=True)
         elif method == "Drop Rows":
             data.dropna(inplace=True)
-    
+        
         st.write("Missing values handled using:", method)
-
-    # Handle Outliers
-    if st.sidebar.checkbox("Handle Outliers"):
-        outlier_method = st.sidebar.selectbox("Outlier Detection Method", ["Z-Score", "IQR"])
-        if outlier_method == "Z-Score":
-            from scipy.stats import zscore
-            z_scores = zscore(data.select_dtypes(include=["float64", "int64"]))
-            data = data[(np.abs(z_scores) < 3).all(axis=1)]
-        elif outlier_method == "IQR":
-            Q1 = data.quantile(0.25)
-            Q3 = data.quantile(0.75)
-            IQR = Q3 - Q1
-            data = data[~((data < (Q1 - 1.5 * IQR)) | (data > (Q3 + 1.5 * IQR))).any(axis=1)]
-        st.write("Outliers handled using:", outlier_method)
 
     # Drop Duplicates
     if st.sidebar.checkbox("Drop Duplicates"):
@@ -80,17 +85,6 @@ if uploaded_file:
         num_cols = data.select_dtypes(include=["float64", "int64"]).columns
         data[num_cols] = scaler.fit_transform(data[num_cols])
         st.write(f"Data {norm_method} applied to numeric columns.")
-
-    # Encoding Categorical Variables
-    if st.sidebar.checkbox("Encode Categorical Variables"):
-        encoding_method = st.sidebar.selectbox("Encoding Method", ["Label Encoding", "One-Hot Encoding"])
-        if encoding_method == "Label Encoding":
-            le = LabelEncoder()
-            for col in data.select_dtypes(include=["object", "category"]).columns:
-                data[col] = le.fit_transform(data[col])
-        elif encoding_method == "One-Hot Encoding":
-            data = pd.get_dummies(data)
-        st.write("Categorical variables encoded using:", encoding_method)
 
     st.write("### Cleaned Dataset Preview")
     st.dataframe(data)
@@ -136,6 +130,38 @@ if uploaded_file:
     # Machine Learning Section
     st.sidebar.header("Machine Learning")
     if st.sidebar.checkbox("Run Machine Learning Models"):
+        # Target Variable Selection
+        target_column = st.sidebar.selectbox("Select Target Column", data.columns)
+
+        # Preprocess Data for ML
+        def preprocess_data_for_ml(data, target_column):
+            """
+            Preprocess the data for ML models:
+            - Encodes categorical variables.
+            - Separates features and target.
+            """
+            # Separate features and target
+            X = data.drop(columns=[target_column])
+            y = data[target_column]
+            
+            # Automatically encode categorical features
+            categorical_cols = X.select_dtypes(include=["object", "category"]).columns
+            if len(categorical_cols) > 0:
+                X = pd.get_dummies(X, columns=categorical_cols)  # Apply One-Hot Encoding
+            
+            # Ensure the target is numeric for classification
+            if y.dtype == "object" or y.dtype.name == "category":
+                le = LabelEncoder()
+                y = le.fit_transform(y)
+            
+            return X, y
+
+        X, y = preprocess_data_for_ml(data, target_column)
+
+        # Train-Test Split
+        test_size = st.sidebar.slider("Test Size (Proportion)", 0.1, 0.5, 0.3)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
+
         # Model Selection
         model_choice = st.sidebar.selectbox(
             "Choose an ML Model",
@@ -148,17 +174,6 @@ if uploaded_file:
                 "K-Means Clustering",
             ],
         )
-
-        # Target Variable Selection
-        target_column = st.sidebar.selectbox("Select Target Column", data.columns)
-
-        # Feature and Target Data
-        X = data.drop(columns=[target_column])
-        y = data[target_column]
-
-        # Train-Test Split
-        test_size = st.sidebar.slider("Test Size (Proportion)", 0.1, 0.5, 0.3)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
 
         # Model Initialization
         try:
