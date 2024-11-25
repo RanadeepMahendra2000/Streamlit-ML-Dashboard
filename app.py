@@ -14,62 +14,84 @@ from sklearn.svm import SVC
 from sklearn.cluster import KMeans
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
-    confusion_matrix, silhouette_score
+    confusion_matrix, roc_auc_score, roc_curve, silhouette_score
 )
+
+# Initialize session state
+if "original_data" not in st.session_state:
+    st.session_state["original_data"] = None
+if "cleaned_data" not in st.session_state:
+    st.session_state["cleaned_data"] = None
+if "uploaded_file" not in st.session_state:
+    st.session_state["uploaded_file"] = None
 
 # Sidebar Header
 st.sidebar.title("Machine Learning Dashboard")
 st.sidebar.markdown("""
-- **Step 1**: Upload your dataset (CSV format).
-- **Step 2**: Clean and explore your data.
-- **Step 3**: Select and train machine learning models.
-- **Step 4**: Evaluate performance and understand results.
+- Upload your dataset
+- Clean and explore data
+- Train and evaluate machine learning models interactively!
 """)
 
-# Title with Background
-st.title("Interactive Machine Learning Platform 🚀")
+# Title with Animated Banner
 st.markdown("""
-This platform guides you through a complete **Machine Learning workflow**, including:
-- Data Cleaning
-- Exploratory Data Analysis (EDA)
-- Model Training and Evaluation
-
-📚 **Learn about the models**: Hover over each model name in the sidebar to see what it does!
-""")
-
-# Machine Learning Background Section
-st.sidebar.subheader("About the Models")
-st.sidebar.markdown("""
-- **Random Forest**: A collection of decision trees that vote to improve accuracy.
-- **Decision Tree**: A tree structure that splits data based on features for predictions.
-- **Logistic Regression**: A statistical model for binary classification.
-- **K-Nearest Neighbors (KNN)**: A simple algorithm that predicts based on the closest neighbors.
-- **Support Vector Machine (SVM)**: Finds a hyperplane to separate data into classes.
-- **K-Means Clustering**: Groups data points into clusters based on feature similarity.
-""")
+<div style="text-align:center;">
+    <h1 style="color:#4A90E2; font-size: 42px;">
+        Interactive Machine Learning Platform 🚀
+    </h1>
+</div>
+""", unsafe_allow_html=True)
 
 # File Upload
 uploaded_file = st.sidebar.file_uploader("Upload your dataset (CSV)", type=["csv"])
 
-# Handle uploaded file
-if uploaded_file:
-    # Load data
-    data = pd.read_csv(uploaded_file)
+# Handle new file upload
+if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
+    st.session_state["original_data"] = pd.read_csv(uploaded_file)
+    st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
+    st.session_state["uploaded_file"] = uploaded_file
+    st.success("New dataset uploaded successfully!")
+
+# Work with the uploaded or reset data
+if st.session_state["original_data"] is not None:
+    data = st.session_state["cleaned_data"]
+
+    # Dataset Preview
     st.write("### Dataset Preview")
     st.dataframe(data)
 
-    # Step-by-Step Workflow
-    st.header("Machine Learning Workflow")
-    st.subheader("1. Data Cleaning")
-    st.markdown("""
-    - Handle missing values, duplicates, or outliers.
-    - Encode categorical variables into numerical formats.
-    """)
-    
+    # Reset Dataset Button
+    if st.sidebar.button("Reset Dataset"):
+        st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
+        st.success("Dataset reset to its original state!")
+        st.experimental_rerun()
+
+    # Data Cleaning Options
+    st.sidebar.header("Data Cleaning Options")
+
+    # Encode Categorical Data
+    if st.sidebar.checkbox("Encode Categorical Data"):
+        encoding_method = st.sidebar.radio("Select Encoding Method", ["Label Encoding", "One-Hot Encoding"])
+        categorical_cols = data.select_dtypes(include=["object", "category"]).columns
+
+        if len(categorical_cols) > 0:
+            if encoding_method == "Label Encoding":
+                le = LabelEncoder()
+                for col in categorical_cols:
+                    data[col] = le.fit_transform(data[col].astype(str))
+                st.write("Applied Label Encoding to categorical columns.")
+            elif encoding_method == "One-Hot Encoding":
+                data = pd.get_dummies(data, columns=categorical_cols)
+                st.write("Applied One-Hot Encoding to categorical columns.")
+        else:
+            st.warning("No categorical columns found to encode.")
+        st.session_state["cleaned_data"] = data
+
     # Handle Missing Values
     if st.sidebar.checkbox("Handle Missing Values"):
-        method = st.sidebar.radio("Choose a method to handle missing values", ["Mean", "Median", "Mode", "Drop Rows"])
+        method = st.sidebar.selectbox("Choose a method", ["Mean", "Median", "Mode", "Drop Rows"])
         numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
+
         if method == "Mean":
             data[numeric_cols] = data[numeric_cols].fillna(data[numeric_cols].mean())
         elif method == "Median":
@@ -79,107 +101,82 @@ if uploaded_file:
                 data[col].fillna(data[col].mode()[0], inplace=True)
         elif method == "Drop Rows":
             data.dropna(inplace=True)
-        st.success(f"Missing values handled using: {method}")
+        st.write(f"Missing values handled using: {method}")
+        st.session_state["cleaned_data"] = data
 
-    # Categorical Encoding
-    if st.sidebar.checkbox("Encode Categorical Data"):
-        encoding_method = st.sidebar.radio("Select Encoding Method", ["Label Encoding", "One-Hot Encoding"])
-        categorical_cols = data.select_dtypes(include=["object"]).columns
-        if len(categorical_cols) > 0:
-            if encoding_method == "Label Encoding":
-                le = LabelEncoder()
-                for col in categorical_cols:
-                    data[col] = le.fit_transform(data[col].astype(str))
-                st.success("Applied Label Encoding.")
-            elif encoding_method == "One-Hot Encoding":
-                data = pd.get_dummies(data, columns=categorical_cols)
-                st.success("Applied One-Hot Encoding.")
-
-    st.subheader("2. Exploratory Data Analysis (EDA)")
-    st.markdown("""
-    - Understand your data visually before training models.
-    """)
-    
-    # Correlation Heatmap
-    if st.sidebar.checkbox("Correlation Heatmap"):
-        st.write("### Correlation Heatmap")
-        corr = data.corr()
-        fig = px.imshow(corr, text_auto=True, color_continuous_scale="Viridis", title="Correlation Matrix")
+    # Visualize Columns
+    st.sidebar.header("Visualization")
+    selected_col = st.sidebar.selectbox("Select a column to visualize", data.columns)
+    if data[selected_col].dtype in ["float64", "int64"]:
+        st.write(f"### Distribution of {selected_col}")
+        fig = px.histogram(data, x=selected_col, title=f"Distribution of {selected_col}")
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.write(f"### Frequency of {selected_col}")
+        fig = px.bar(data[selected_col].value_counts().reset_index(), x="index", y=selected_col,
+                     labels={"index": selected_col, selected_col: "Count"},
+                     title=f"Frequency of {selected_col}")
         st.plotly_chart(fig, use_container_width=True)
 
     # Machine Learning Section
-    st.subheader("3. Model Training and Evaluation")
-    target_column = st.selectbox("Select the Target Column (for supervised models)", options=[None] + list(data.columns))
-    X = data.drop(columns=[target_column]) if target_column else data
-    y = data[target_column] if target_column else None
+    st.sidebar.header("Machine Learning")
+    if st.sidebar.checkbox("Run Machine Learning Models"):
+        target_column = st.sidebar.selectbox("Select Target Column", data.columns)
+        X = data.drop(columns=[target_column])
+        y = data[target_column]
 
-    # Encode categorical features
-    categorical_cols = X.select_dtypes(include=["object", "category"]).columns
-    if len(categorical_cols) > 0:
-        X = pd.get_dummies(X, columns=categorical_cols)
+        # Encode categorical features
+        categorical_cols = X.select_dtypes(include=["object", "category"]).columns
+        if len(categorical_cols) > 0:
+            X = pd.get_dummies(X, columns=categorical_cols)
 
-    # Train-Test Split for supervised models
-    if target_column:
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+        # Encode target column if categorical
+        if y.dtype in ["object", "category"]:
+            le = LabelEncoder()
+            y = le.fit_transform(y)
 
-    # Model Selection
-    model_choice = st.sidebar.radio(
-        "Choose a Machine Learning Model",
-        ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine", "K-Means Clustering"]
-    )
+        # Train-Test Split
+        test_size = st.sidebar.slider("Test Size (Proportion)", 0.1, 0.5, 0.3)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
 
-    if st.sidebar.button("Train Model"):
-        if model_choice == "K-Means Clustering":
-            # K-Means Clustering
-            num_clusters = st.sidebar.slider("Select Number of Clusters (k)", min_value=2, max_value=10, value=3)
-            model = KMeans(n_clusters=num_clusters, random_state=42)
-            model.fit(X)
-            data["Cluster"] = model.labels_
+        # Model Selection
+        model_choice = st.sidebar.selectbox(
+            "Choose an ML Model",
+            ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine"]
+        )
 
-            st.write("### Clustering Results")
-            st.write("Cluster Assignments:", model.labels_)
-            st.write("Inertia (Sum of squared distances to cluster centers):", model.inertia_)
+        # Initialize and train supervised model
+        if model_choice == "Random Forest":
+            model = RandomForestClassifier()
+        elif model_choice == "Decision Tree":
+            model = DecisionTreeClassifier()
+        elif model_choice == "Logistic Regression":
+            model = LogisticRegression()
+        elif model_choice == "K-Nearest Neighbors":
+            model = KNeighborsClassifier()
+        elif model_choice == "Support Vector Machine":
+            model = SVC(probability=True)
 
-            # Silhouette Score
-            if len(X) >= num_clusters:
-                silhouette_avg = silhouette_score(X, model.labels_)
-                st.write("Silhouette Score:", silhouette_avg)
-
-            # Visualize Clusters (only works if there are two features or PCA-reduced)
-            if X.shape[1] == 2:
-                fig = px.scatter(X, x=X.columns[0], y=X.columns[1], color=data["Cluster"].astype(str),
-                                 title="K-Means Clustering Visualization", labels={"color": "Cluster"})
-                st.plotly_chart(fig, use_container_width=True)
-            else:
-                st.info("Clustering visualization requires exactly 2 numeric features. Consider reducing dimensions.")
-
-        else:
-            # Supervised Models
-            if model_choice == "Random Forest":
-                model = RandomForestClassifier()
-            elif model_choice == "Decision Tree":
-                model = DecisionTreeClassifier()
-            elif model_choice == "Logistic Regression":
-                model = LogisticRegression()
-            elif model_choice == "K-Nearest Neighbors":
-                model = KNeighborsClassifier()
-            elif model_choice == "Support Vector Machine":
-                model = SVC(probability=True)
-
-            # Train supervised model
+        with st.spinner("Training model..."):
             model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
 
-            # Display Metrics
-            st.write(f"### {model_choice} Performance")
-            st.write("Accuracy:", accuracy_score(y_test, y_pred))
-            st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
-            st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
-            st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
+        y_pred = model.predict(X_test)
 
-            # Confusion Matrix
-            cm = confusion_matrix(y_test, y_pred)
-            fig = px.imshow(cm, text_auto=True, title="Confusion Matrix", labels={"x": "Predicted", "y": "Actual"})
+        # Display Metrics
+        st.write("### Model Performance")
+        st.write("Accuracy:", accuracy_score(y_test, y_pred))
+        st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
+        st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
+        st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
+
+        # Feature Importance for Tree-Based Models
+        if model_choice in ["Random Forest", "Decision Tree"]:
+            feature_importances = pd.DataFrame({
+                "Feature": X.columns,
+                "Importance": model.feature_importances_
+            }).sort_values(by="Importance", ascending=False)
+            st.write("### Feature Importance")
+            fig = px.bar(feature_importances, x="Importance", y="Feature", orientation="h", title="Feature Importance")
             st.plotly_chart(fig, use_container_width=True)
 
 # Footer
