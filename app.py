@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.tree import DecisionTreeClassifier
@@ -27,7 +27,7 @@ if "uploaded_file" not in st.session_state:
 # Reset page on error
 def reset_app():
     st.session_state.clear()
-    st.experimental_rerun()
+    st.experimental_set_query_params()  # Triggers a reload of the app
 
 # Title
 st.title("Interactive ML Model Testing and EDA Platform")
@@ -59,7 +59,7 @@ try:
         if st.sidebar.button("Reset Dataset"):
             st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
             st.success("Dataset reset to its original state!")
-            st.experimental_rerun()
+            st.experimental_set_query_params()  # Triggers app reload
 
         # Data Cleaning Options
         st.sidebar.header("Data Cleaning Options")
@@ -169,7 +169,7 @@ try:
             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=test_size, random_state=42)
 
             # Model Selection
-            model_choice = st.sidebar.selectbox(
+            model_choice = st.sidebar.radio(
                 "Choose an ML Model",
                 ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine", "K-Means Clustering"]
             )
@@ -212,10 +212,8 @@ try:
                 plt.figure(figsize=(8, 6))
                 sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
                 st.pyplot(plt)
+
 except Exception as e:
     st.error(f"An unexpected error occurred: {str(e)}")
     if st.sidebar.button("Reset App"):
-        reset_app()
-
-# Footer
-st.sidebar.markdown("Developed by Ranadeep Mahendra 🚀")
+       
