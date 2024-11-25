@@ -3,7 +3,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
-import plotly.express as px
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
@@ -25,25 +24,15 @@ if "cleaned_data" not in st.session_state:
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
 
-# Sidebar Header
-st.sidebar.title("Machine Learning Dashboard")
-st.sidebar.markdown("""
-- Upload your dataset
-- Clean and explore data
-- Train and evaluate machine learning models interactively!
+# Title
+st.title("Interactive ML Model Testing and EDA Platform")
+st.markdown("""
+Upload your dataset to clean, analyze, and test six powerful machine learning algorithms. 
+This platform combines data preparation, exploratory data analysis (EDA), and ML model experimentation in a single interface.
 """)
 
-# Title with Animated Banner
-st.markdown("""
-<div style="text-align:center;">
-    <h1 style="color:#4A90E2; font-size: 42px;">
-        Interactive Machine Learning Platform 🚀
-    </h1>
-</div>
-""", unsafe_allow_html=True)
-
 # File Upload
-uploaded_file = st.sidebar.file_uploader("Upload your dataset (CSV)", type=["csv"])
+uploaded_file = st.sidebar.file_uploader("Upload your dataset in CSV format", type=["csv"])
 
 # Handle new file upload
 if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
@@ -56,11 +45,11 @@ if uploaded_file and uploaded_file != st.session_state["uploaded_file"]:
 if st.session_state["original_data"] is not None:
     data = st.session_state["cleaned_data"]
 
-    # Dataset Preview
+    # Display dataset
     st.write("### Dataset Preview")
     st.dataframe(data)
 
-    # Reset Dataset Button
+    # Option to reset the dataset
     if st.sidebar.button("Reset Dataset"):
         st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
         st.success("Dataset reset to its original state!")
@@ -69,8 +58,8 @@ if st.session_state["original_data"] is not None:
     # Data Cleaning Options
     st.sidebar.header("Data Cleaning Options")
 
-    # Encode Categorical Data
-    if st.sidebar.checkbox("Encode Categorical Data"):
+    # Automatically Encode Categorical Data
+    if st.sidebar.checkbox("Automatically Encode Categorical Data"):
         encoding_method = st.sidebar.radio("Select Encoding Method", ["Label Encoding", "One-Hot Encoding"])
         categorical_cols = data.select_dtypes(include=["object", "category"]).columns
 
@@ -84,7 +73,7 @@ if st.session_state["original_data"] is not None:
                 data = pd.get_dummies(data, columns=categorical_cols)
                 st.write("Applied One-Hot Encoding to categorical columns.")
         else:
-            st.warning("No categorical columns found to encode.")
+            st.write("No categorical columns found to encode.")
         st.session_state["cleaned_data"] = data
 
     # Handle Missing Values
@@ -101,22 +90,56 @@ if st.session_state["original_data"] is not None:
                 data[col].fillna(data[col].mode()[0], inplace=True)
         elif method == "Drop Rows":
             data.dropna(inplace=True)
-        st.write(f"Missing values handled using: {method}")
+        st.write("Missing values handled using:", method)
         st.session_state["cleaned_data"] = data
 
-    # Visualize Columns
-    st.sidebar.header("Visualization")
-    selected_col = st.sidebar.selectbox("Select a column to visualize", data.columns)
-    if data[selected_col].dtype in ["float64", "int64"]:
-        st.write(f"### Distribution of {selected_col}")
-        fig = px.histogram(data, x=selected_col, title=f"Distribution of {selected_col}")
-        st.plotly_chart(fig, use_container_width=True)
-    else:
-        st.write(f"### Frequency of {selected_col}")
-        fig = px.bar(data[selected_col].value_counts().reset_index(), x="index", y=selected_col,
-                     labels={"index": selected_col, selected_col: "Count"},
-                     title=f"Frequency of {selected_col}")
-        st.plotly_chart(fig, use_container_width=True)
+    # Drop Duplicates
+    if st.sidebar.checkbox("Drop Duplicates"):
+        data.drop_duplicates(inplace=True)
+        st.write("Duplicates dropped.")
+        st.session_state["cleaned_data"] = data
+
+    # Normalize/Standardize Data
+    if st.sidebar.checkbox("Normalize/Standardize Data"):
+        norm_method = st.sidebar.selectbox("Choose a method", ["Standardization", "Min-Max Scaling"])
+        scaler = StandardScaler() if norm_method == "Standardization" else MinMaxScaler()
+        numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
+        data[numeric_cols] = scaler.fit_transform(data[numeric_cols])
+        st.write(f"Data {norm_method} applied to numeric columns.")
+        st.session_state["cleaned_data"] = data
+
+    st.write("### Cleaned Dataset Preview")
+    st.dataframe(data)
+
+    # EDA Options
+    st.sidebar.header("EDA Options")
+
+    if st.sidebar.checkbox("Show Summary Statistics"):
+        st.write("### Summary Statistics")
+        st.write(data.describe(include="all"))
+
+    if st.sidebar.checkbox("Correlation Heatmap"):
+        numeric_cols = data.select_dtypes(include=["float64", "int64"]).columns
+        if len(numeric_cols) > 0:
+            st.write("### Correlation Heatmap")
+            plt.figure(figsize=(10, 6))
+            sns.heatmap(data[numeric_cols].corr(), annot=True, cmap="coolwarm")
+            st.pyplot(plt)
+        else:
+            st.write("No numeric columns available for correlation heatmap.")
+
+    if st.sidebar.checkbox("Visualize Columns"):
+        selected_col = st.sidebar.selectbox("Select a column to visualize", data.columns)
+        if data[selected_col].dtype in ["float64", "int64"]:
+            st.write(f"### Distribution of {selected_col}")
+            plt.figure(figsize=(8, 4))
+            sns.histplot(data[selected_col], kde=True)
+            st.pyplot(plt)
+        else:
+            st.write(f"### Frequency of {selected_col}")
+            plt.figure(figsize=(8, 4))
+            sns.countplot(y=data[selected_col])
+            st.pyplot(plt)
 
     # Machine Learning Section
     st.sidebar.header("Machine Learning")
@@ -142,42 +165,47 @@ if st.session_state["original_data"] is not None:
         # Model Selection
         model_choice = st.sidebar.selectbox(
             "Choose an ML Model",
-            ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine"]
+            ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine", "K-Means Clustering"]
         )
 
-        # Initialize and train supervised model
-        if model_choice == "Random Forest":
-            model = RandomForestClassifier()
-        elif model_choice == "Decision Tree":
-            model = DecisionTreeClassifier()
-        elif model_choice == "Logistic Regression":
-            model = LogisticRegression()
-        elif model_choice == "K-Nearest Neighbors":
-            model = KNeighborsClassifier()
-        elif model_choice == "Support Vector Machine":
-            model = SVC(probability=True)
+        if model_choice == "K-Means Clustering":
+            model = KMeans(n_clusters=3)
+            model.fit(X)
+            st.write("### Clustering Results")
+            st.write("Cluster Assignments:", model.labels_)
+            st.write("Inertia (Sum of squared distances to cluster centers):", model.inertia_)
+            if len(X) >= 2:
+                silhouette_avg = silhouette_score(X, model.labels_)
+                st.write("Silhouette Score:", silhouette_avg)
+        else:
+            # Initialize and train supervised model
+            if model_choice == "Random Forest":
+                model = RandomForestClassifier()
+            elif model_choice == "Decision Tree":
+                model = DecisionTreeClassifier()
+            elif model_choice == "Logistic Regression":
+                model = LogisticRegression()
+            elif model_choice == "K-Nearest Neighbors":
+                model = KNeighborsClassifier()
+            elif model_choice == "Support Vector Machine":
+                model = SVC(probability=True)
 
-        with st.spinner("Training model..."):
             model.fit(X_train, y_train)
+            y_pred = model.predict(X_test)
 
-        y_pred = model.predict(X_test)
+            # Display metrics
+            st.write("### Model Performance")
+            st.write("Accuracy:", accuracy_score(y_test, y_pred))
+            st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
+            st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
+            st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
 
-        # Display Metrics
-        st.write("### Model Performance")
-        st.write("Accuracy:", accuracy_score(y_test, y_pred))
-        st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
-        st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
-        st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
-
-        # Feature Importance for Tree-Based Models
-        if model_choice in ["Random Forest", "Decision Tree"]:
-            feature_importances = pd.DataFrame({
-                "Feature": X.columns,
-                "Importance": model.feature_importances_
-            }).sort_values(by="Importance", ascending=False)
-            st.write("### Feature Importance")
-            fig = px.bar(feature_importances, x="Importance", y="Feature", orientation="h", title="Feature Importance")
-            st.plotly_chart(fig, use_container_width=True)
+            # Confusion Matrix
+            st.write("### Confusion Matrix")
+            cm = confusion_matrix(y_test, y_pred)
+            plt.figure(figsize=(8, 6))
+            sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+            st.pyplot(plt)
 
 # Footer
-st.sidebar.markdown("Developed by Ranadeep Mahendra 🚀")
+st.sidebar.markdown("Developed by [Your Name]")
