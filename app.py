@@ -208,4 +208,4 @@ if st.session_state["original_data"] is not None:
             st.pyplot(plt)
 
 # Footer
-st.sidebar.markdown("Developed by [Your Name]")
+st.sidebar.markdown("Developed by Ranadeep Mahendra")
