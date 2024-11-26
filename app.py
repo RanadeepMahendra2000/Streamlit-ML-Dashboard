@@ -33,25 +33,33 @@ tracemalloc.start(10)  # Retain 10 frames of traceback for debugging memory leak
 # Initialize session state
 if "original_data" not in st.session_state:
     st.session_state["original_data"] = None
+    gc.collect()  
 if "cleaned_data" not in st.session_state:
     st.session_state["cleaned_data"] = None
+    gc.collect()  
 if "uploaded_file" not in st.session_state:
     st.session_state["uploaded_file"] = None
+    gc.collect()  
 
 # Caching functions
 @st.cache_data
 def load_dataset(file):
     """Loads the dataset with caching."""
+    gc.collect()  
     try:
+        gc.collect()  
         return pd.read_csv(file)
+        
     except Exception as e:
         logging.error(f"Error loading dataset: {e}", exc_info=True)
         st.error("Error loading dataset. Please check the file format.")
+        gc.collect()  
         return None
 
 @st.cache_resource
 def process_data(df):
     """Processes the data (e.g., encoding, normalization)."""
+    gc.collect()  
     return df.copy()
 
 # Reset app
@@ -59,6 +67,7 @@ def reset_app():
     """Resets the app and reloads the page."""
     st.session_state.clear()
     st.experimental_set_query_params()  # Triggers a page reload
+    gc.collect()  
 
 # Memory debugging utility
 def compare_snapshots():
@@ -67,10 +76,13 @@ def compare_snapshots():
     if "snapshot" in st.session_state:
         diff = snapshot.compare_to(st.session_state["snapshot"], "lineno")
         leaks = [d for d in diff if d.count_diff > 0]
+        gc.collect()  
         if leaks:
             st.write("### Potential Memory Leaks Detected")
             for leak in leaks[:10]:  # Limit to top 10 leaks for clarity
                 st.write(leak)
+                gc.collect()  
+                
     st.session_state["snapshot"] = snapshot
 
 # Title
@@ -112,12 +124,14 @@ try:
         # Display dataset preview
         st.write("### Dataset Preview")
         st.dataframe(data)
+        gc.collect()  
 
         # Option to reset the dataset
         if st.sidebar.button("Reset Dataset"):
             st.session_state["cleaned_data"] = st.session_state["original_data"].copy()
             st.success("Dataset reset to its original state!")
             st.experimental_set_query_params()  # Triggers app reload
+            gc.collect()  
 
         # Data Cleaning Options
         st.sidebar.header("Data Cleaning Options")
@@ -129,6 +143,7 @@ try:
 
             if numeric_cols.empty:
                 st.warning("No numeric columns found.")
+                gc.collect()  
             else:
                 try:
                     if method == "Mean":
@@ -142,15 +157,18 @@ try:
                         data.dropna(inplace=True)
                     st.success(f"Missing values handled using: {method}")
                     st.session_state["cleaned_data"] = data
+                    gc.collect()  
                 except Exception as e:
                     st.error(f"Error handling missing values: {e}")
                     logging.error(f"Error handling missing values: {e}", exc_info=True)
+                    gc.collect()  
 
         # Encode Categorical Data
         if st.sidebar.checkbox("Encode Categorical Data"):
             try:
                 encoding_method = st.sidebar.radio("Encoding Method", ["Label Encoding", "One-Hot Encoding"])
                 categorical_cols = data.select_dtypes(include=["object"]).columns
+                gc.collect()  
 
                 if len(categorical_cols) > 0:
                     if encoding_method == "Label Encoding":
@@ -164,13 +182,16 @@ try:
                 else:
                     st.info("No categorical columns found for encoding.")
                 st.session_state["cleaned_data"] = data
+                gc.collect()  
             except Exception as e:
                 st.error(f"Error encoding categorical data: {e}")
                 logging.error(f"Error encoding categorical data: {e}", exc_info=True)
+                gc.collect()  
 
         # Display cleaned dataset
         st.write("### Cleaned Dataset Preview")
         st.dataframe(data)
+        gc.collect()  
 
         # EDA Options
         st.sidebar.header("EDA Options")
@@ -182,6 +203,7 @@ try:
             except Exception as e:
                 st.error(f"Error generating summary statistics: {e}")
                 logging.error(f"Error generating summary statistics: {e}", exc_info=True)
+                gc.collect()  
 
         if st.sidebar.checkbox("Correlation Heatmap"):
             try:
@@ -191,11 +213,13 @@ try:
                     plt.figure(figsize=(10, 6))
                     sns.heatmap(data[numeric_cols].corr(), annot=True, cmap="coolwarm")
                     st.pyplot(plt)
+                    gc.collect()  
                 else:
                     st.info("No numeric columns for heatmap.")
             except Exception as e:
                 st.error(f"Error generating correlation heatmap: {e}")
                 logging.error(f"Error generating correlation heatmap: {e}", exc_info=True)
+                gc.collect()  
 
         if st.sidebar.checkbox("Visualize Columns"):
             try:
@@ -205,14 +229,17 @@ try:
                     plt.figure(figsize=(8, 4))
                     sns.histplot(data[selected_col], kde=True)
                     st.pyplot(plt)
+                    gc.collect()  
                 else:
                     st.write(f"### Frequency of {selected_col}")
                     plt.figure(figsize=(8, 4))
                     sns.countplot(y=data[selected_col])
                     st.pyplot(plt)
+                    gc.collect()  
             except Exception as e:
                 st.error(f"Error visualizing column: {e}")
                 logging.error(f"Error visualizing column: {e}", exc_info=True)
+                gc.collect() 
 
         # Machine Learning Section
         st.sidebar.header("Machine Learning")
@@ -221,7 +248,7 @@ try:
                 target_column = st.sidebar.selectbox("Select Target Column", data.columns)
                 X = data.drop(columns=[target_column])
                 y = data[target_column]
-
+                gc.collect() 
                 # Encode categorical variables
                 X = pd.get_dummies(X)
                 if y.dtype == "object":
@@ -229,23 +256,27 @@ try:
 
                 # Train-Test Split
                 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
-
+                gc.collect() 
                 # Model Selection
                 model_choice = st.sidebar.radio(
                     "Choose ML Model",
                     ["Random Forest", "Decision Tree", "Logistic Regression", "K-Nearest Neighbors", "Support Vector Machine", "K-Means Clustering"]
                 )
+                gc.collect() 
 
                 if model_choice == "K-Means Clustering":
                     num_clusters = st.sidebar.slider("Number of Clusters", 2, 10, 3)
                     model = KMeans(n_clusters=num_clusters, random_state=42)
                     model.fit(X)
+                    gc.collect() 
                     st.write("### Clustering Results")
                     st.write("Cluster Assignments:", model.labels_)
                     st.write("Inertia (Sum of squared distances):", model.inertia_)
+                    gc.collect() 
                     if X.shape[1] > 1:
                         silhouette_avg = silhouette_score(X, model.labels_)
                         st.write("Silhouette Score:", silhouette_avg)
+                        gc.collect() 
                 else:
                     if model_choice == "Random Forest":
                         model = RandomForestClassifier(n_estimators=50)
@@ -257,15 +288,18 @@ try:
                         model = KNeighborsClassifier()
                     elif model_choice == "Support Vector Machine":
                         model = SVC(probability=True)
+                    gc.collect()     
 
                     model.fit(X_train, y_train)
                     y_pred = model.predict(X_test)
+                    gc.collect() 
 
                     st.write("### Model Performance")
                     st.write("Accuracy:", accuracy_score(y_test, y_pred))
                     st.write("Precision:", precision_score(y_test, y_pred, average="weighted"))
                     st.write("Recall:", recall_score(y_test, y_pred, average="weighted"))
                     st.write("F1-Score:", f1_score(y_test, y_pred, average="weighted"))
+                    gc.collect() 
 
                     # Confusion Matrix
                     st.write("### Confusion Matrix")
@@ -273,16 +307,20 @@ try:
                     plt.figure(figsize=(8, 6))
                     sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
                     st.pyplot(plt)
+                    gc.collect() 
             except Exception as e:
                 st.error(f"Error training model: {e}")
                 logging.error(f"Error training model: {e}", exc_info=True)
+                gc.collect() 
         gc.collect()
         compare_snapshots()
+        gc.collect() 
 
 except Exception as e:
     st.error(f"Unexpected error occurred: {e}")
     logging.error(f"Unexpected error occurred: {e}", exc_info=True)
     if st.sidebar.button("Reset App"):
+        gc.collect() 
         reset_app()
 
 # Footer
